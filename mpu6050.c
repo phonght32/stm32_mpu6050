@@ -275,7 +275,7 @@ mpu6050_handle_t mpu6050_init(mpu6050_cfg_t *config)
     handle->sleep_mode = config->sleep_mode;
     handle->if_protocol = config->if_protocol;
     handle->lock = mutex_create();
-    
+
     return handle;
 }
 
@@ -288,6 +288,7 @@ stm_err_t mpu6050_get_accel_raw(mpu6050_handle_t handle, mpu6050_raw_data_t *raw
 
     ret = handle->_read(handle, MPU6050_ACCEL_XOUT_H, accel_raw_data, 6, TIMEOUT_MS_DEFAULT);
     if (ret) {
+        STM_LOGE(MPU6050_TAG, MPU6050_GET_DATA_ERR_STR);
         mutex_unlock(handle->lock);
         return STM_FAIL;
     }
@@ -309,6 +310,7 @@ stm_err_t mpu6050_get_accel_cali(mpu6050_handle_t handle, mpu6050_cali_data_t *c
 
     ret = handle->_read(handle, MPU6050_ACCEL_XOUT_H, accel_raw_data, 6, TIMEOUT_MS_DEFAULT);
     if (ret) {
+        STM_LOGE(MPU6050_TAG, MPU6050_GET_DATA_ERR_STR);
         mutex_unlock(handle->lock);
         return STM_FAIL;
     }
@@ -330,6 +332,7 @@ stm_err_t mpu6050_get_accel_scale(mpu6050_handle_t handle, mpu6050_scale_data_t 
 
     ret = handle->_read(handle, MPU6050_ACCEL_XOUT_H, accel_raw_data, 6, TIMEOUT_MS_DEFAULT);
     if (ret) {
+        STM_LOGE(MPU6050_TAG, MPU6050_GET_DATA_ERR_STR);
         mutex_unlock(handle->lock);
         return STM_FAIL;
     }
@@ -351,6 +354,7 @@ stm_err_t mpu6050_get_gyro_raw(mpu6050_handle_t handle, mpu6050_raw_data_t *raw_
 
     ret = handle->_read(handle, MPU6050_GYRO_XOUT_H, gyro_raw_data, 6, TIMEOUT_MS_DEFAULT);
     if (ret) {
+        STM_LOGE(MPU6050_TAG, MPU6050_GET_DATA_ERR_STR);
         mutex_unlock(handle->lock);
         return STM_FAIL;
     }
@@ -372,6 +376,7 @@ stm_err_t mpu6050_get_gyro_cali(mpu6050_handle_t handle, mpu6050_cali_data_t *ca
 
     ret = handle->_read(handle, MPU6050_GYRO_XOUT_H, gyro_raw_data, 6, TIMEOUT_MS_DEFAULT);
     if (ret) {
+        STM_LOGE(MPU6050_TAG, MPU6050_GET_DATA_ERR_STR);
         mutex_unlock(handle->lock);
         return STM_FAIL;
     }
@@ -390,9 +395,10 @@ stm_err_t mpu6050_get_gyro_scale(mpu6050_handle_t handle, mpu6050_scale_data_t *
 
     int ret;
     uint8_t gyro_raw_data[6];
-    
+
     ret = handle->_read(handle, MPU6050_GYRO_XOUT_H, gyro_raw_data, 6, TIMEOUT_MS_DEFAULT);
     if (ret) {
+        STM_LOGE(MPU6050_TAG, MPU6050_GET_DATA_ERR_STR);
         mutex_unlock(handle->lock);
         return STM_FAIL;
     }
