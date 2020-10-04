@@ -105,9 +105,9 @@
 #define mutex_destroy(x)            vQueueDelete(x)
 
 static const char* MPU6050_TAG = "MPU6050";
-#define MPU6050_CHECK(a, str, ret)  if(!(a)) {                                              \
+#define MPU6050_CHECK(a, str, action)  if(!(a)) {                                           \
         STM_LOGE(MPU6050_TAG,"%s:%d (%s):%s", __FILE__, __LINE__, __FUNCTION__, str);       \
-        return (ret);                                                                       \
+        action;                                                                       \
         }
 
 typedef stm_err_t (*read_func)(mpu6050_handle_t handle, uint8_t reg_addr, uint8_t *buf, uint16_t len, uint32_t timeout_ms);
@@ -139,7 +139,7 @@ static stm_err_t _i2c_write_func(mpu6050_handle_t handle, uint8_t reg_addr, uint
         buf_send[i + 1] = buf[i];
     }
 
-    MPU6050_CHECK(!i2c_write_bytes(handle->i2c_num, MPU6050_ADDR, buf_send, len + 1, timeout_ms), MPU6050_TRANS_ERR_STR, STM_FAIL);
+    MPU6050_CHECK(!i2c_write_bytes(handle->i2c_num, MPU6050_ADDR, buf_send, len + 1, timeout_ms), MPU6050_TRANS_ERR_STR, return STM_FAIL);
     return STM_OK;
 }
 
@@ -147,8 +147,8 @@ static stm_err_t _i2c_read_func(mpu6050_handle_t handle, uint8_t reg_addr, uint8
 {
     uint8_t buffer[1];
     buffer[0] = reg_addr;
-    MPU6050_CHECK(!i2c_write_bytes(handle->i2c_num, MPU6050_ADDR, buffer, 1, timeout_ms), MPU6050_REC_ERR_STR, STM_FAIL);
-    MPU6050_CHECK(!i2c_read_bytes(handle->i2c_num, MPU6050_ADDR, buf, len, timeout_ms), MPU6050_REC_ERR_STR, STM_FAIL);
+    MPU6050_CHECK(!i2c_write_bytes(handle->i2c_num, MPU6050_ADDR, buffer, 1, timeout_ms), MPU6050_REC_ERR_STR, return STM_FAIL);
+    MPU6050_CHECK(!i2c_read_bytes(handle->i2c_num, MPU6050_ADDR, buf, len, timeout_ms), MPU6050_REC_ERR_STR, return STM_FAIL);
 
     return STM_OK;
 }
@@ -159,21 +159,25 @@ static void _mpu6050_set_func(mpu6050_handle_t handle, read_func _read, write_fu
     handle->_write = _write;
 }
 
+static void _mpu6050_cleanup(mpu6050_handle_t handle) {
+    free(handle);
+}
+
 mpu6050_handle_t mpu6050_init(mpu6050_cfg_t *config)
 {
     /* Check if init structure is empty */
     MPU6050_CHECK(config, MPU6050_INIT_ERR_STR, NULL);
-    MPU6050_CHECK(config->clksel < MPU6050_CLKSEL_MAX, MPU6050_INIT_ERR_STR, NULL);
-    MPU6050_CHECK(config->dlpf_cfg < MPU6050_DLPF_CFG_MAX, MPU6050_INIT_ERR_STR, NULL);
-    MPU6050_CHECK(config->sleep_mode < MPU6050_SLEEP_MODE_MAX, MPU6050_INIT_ERR_STR, NULL);
-    MPU6050_CHECK(config->fs_sel < MPU6050_FS_SEL_MAX, MPU6050_INIT_ERR_STR, NULL);
-    MPU6050_CHECK(config->afs_sel < MPU6050_AFS_SEL_MAX, MPU6050_INIT_ERR_STR, NULL);
-    MPU6050_CHECK(config->if_protocol < MPU6050_IF_MAX, MPU6050_INIT_ERR_STR, NULL);
+    MPU6050_CHECK(config->clksel < MPU6050_CLKSEL_MAX, MPU6050_INIT_ERR_STR, return NULL);
+    MPU6050_CHECK(config->dlpf_cfg < MPU6050_DLPF_CFG_MAX, MPU6050_INIT_ERR_STR, return NULL);
+    MPU6050_CHECK(config->sleep_mode < MPU6050_SLEEP_MODE_MAX, MPU6050_INIT_ERR_STR, return NULL);
+    MPU6050_CHECK(config->fs_sel < MPU6050_FS_SEL_MAX, MPU6050_INIT_ERR_STR, return NULL);
+    MPU6050_CHECK(config->afs_sel < MPU6050_AFS_SEL_MAX, MPU6050_INIT_ERR_STR, return NULL);
+    MPU6050_CHECK(config->if_protocol < MPU6050_IF_MAX, MPU6050_INIT_ERR_STR, return NULL);
 
     /* Allocate memory for handle structure */
     mpu6050_handle_t handle;
     handle = calloc(1, sizeof(mpu6050_t));
-    MPU6050_CHECK(handle, MPU6050_INIT_ERR_STR, NULL);
+    MPU6050_CHECK(handle, MPU6050_INIT_ERR_STR, return NULL);
 
     handle->i2c_num = config->i2c_num;
 
@@ -185,35 +189,35 @@ mpu6050_handle_t mpu6050_init(mpu6050_cfg_t *config)
     /* Reset mpu6050 */
     uint8_t buffer = 0;
     buffer = 0x80;
-    MPU6050_CHECK(!handle->_write(handle, MPU6050_PWR_MGMT_1, &buffer, 1, TIMEOUT_MS_DEFAULT), MPU6050_INIT_ERR_STR, NULL);
+    MPU6050_CHECK(!handle->_write(handle, MPU6050_PWR_MGMT_1, &buffer, 1, TIMEOUT_MS_DEFAULT), MPU6050_INIT_ERR_STR, {_mpu6050_cleanup(handle); return NULL;});
     HAL_Delay(100);
 
     /* Configure clock source and sleep mode */
     buffer = 0;
     buffer = config->clksel & 0x07;
     buffer |= (config->sleep_mode << 6) & 0x40;
-    MPU6050_CHECK(!handle->_write(handle, MPU6050_PWR_MGMT_1, &buffer, 1, TIMEOUT_MS_DEFAULT), MPU6050_INIT_ERR_STR, NULL);
+    MPU6050_CHECK(!handle->_write(handle, MPU6050_PWR_MGMT_1, &buffer, 1, TIMEOUT_MS_DEFAULT), MPU6050_INIT_ERR_STR, {_mpu6050_cleanup(handle); return NULL;});
     HAL_Delay(100);
 
     /* Configure digital low pass filter */
     buffer = 0;
     buffer = config->dlpf_cfg & 0x07;
-    MPU6050_CHECK(!handle->_write(handle, MPU6050_CONFIG, &buffer, 1, TIMEOUT_MS_DEFAULT), MPU6050_INIT_ERR_STR, NULL);
+    MPU6050_CHECK(!handle->_write(handle, MPU6050_CONFIG, &buffer, 1, TIMEOUT_MS_DEFAULT), MPU6050_INIT_ERR_STR, {_mpu6050_cleanup(handle); return NULL;});
 
     /* Configure gyroscope range */
     buffer = 0;
     buffer = (config->fs_sel << 3) & 0x18;
-    MPU6050_CHECK(!handle->_write(handle, MPU6050_GYRO_CONFIG, &buffer, 1, TIMEOUT_MS_DEFAULT), MPU6050_INIT_ERR_STR, NULL);
+    MPU6050_CHECK(!handle->_write(handle, MPU6050_GYRO_CONFIG, &buffer, 1, TIMEOUT_MS_DEFAULT), MPU6050_INIT_ERR_STR, {_mpu6050_cleanup(handle); return NULL;});
 
     /* Configure accelerometer range */
     buffer = 0;
     buffer = (config->afs_sel << 3) & 0x18;
-    MPU6050_CHECK(!handle->_write(handle, MPU6050_ACCEL_CONFIG, &buffer, 1, TIMEOUT_MS_DEFAULT), MPU6050_INIT_ERR_STR, NULL);
+    MPU6050_CHECK(!handle->_write(handle, MPU6050_ACCEL_CONFIG, &buffer, 1, TIMEOUT_MS_DEFAULT), MPU6050_INIT_ERR_STR, {_mpu6050_cleanup(handle); return NULL;});
 
     /* Configure sample rate divider */
     buffer = 0;
     buffer = 0x04;
-    MPU6050_CHECK(!handle->_write(handle, MPU6050_SMPLRT_DIV, &buffer, 1, TIMEOUT_MS_DEFAULT), MPU6050_INIT_ERR_STR, NULL);
+    MPU6050_CHECK(!handle->_write(handle, MPU6050_SMPLRT_DIV, &buffer, 1, TIMEOUT_MS_DEFAULT), MPU6050_INIT_ERR_STR, {_mpu6050_cleanup(handle); return NULL;});
 
     /* Update accelerometer scaling factor */
     switch (config->afs_sel)
