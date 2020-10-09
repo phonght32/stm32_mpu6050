@@ -166,7 +166,7 @@ static void _mpu6050_cleanup(mpu6050_handle_t handle) {
 mpu6050_handle_t mpu6050_init(mpu6050_cfg_t *config)
 {
     /* Check if init structure is empty */
-    MPU6050_CHECK(config, MPU6050_INIT_ERR_STR, NULL);
+    MPU6050_CHECK(config, MPU6050_INIT_ERR_STR, return NULL);
     MPU6050_CHECK(config->clksel < MPU6050_CLKSEL_MAX, MPU6050_INIT_ERR_STR, return NULL);
     MPU6050_CHECK(config->dlpf_cfg < MPU6050_DLPF_CFG_MAX, MPU6050_INIT_ERR_STR, return NULL);
     MPU6050_CHECK(config->sleep_mode < MPU6050_SLEEP_MODE_MAX, MPU6050_INIT_ERR_STR, return NULL);
