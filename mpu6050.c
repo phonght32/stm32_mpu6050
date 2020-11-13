@@ -107,11 +107,11 @@
 static const char* MPU6050_TAG = "MPU6050";
 #define MPU6050_CHECK(a, str, action)  if(!(a)) {                                           \
         STM_LOGE(MPU6050_TAG,"%s:%d (%s):%s", __FILE__, __LINE__, __FUNCTION__, str);       \
-        action;                                                                       \
+        action;                                                                             \
         }
 
-typedef stm_err_t (*read_func)(mpu6050_handle_t handle, uint8_t reg_addr, uint8_t *buf, uint16_t len, uint32_t timeout_ms);
-typedef stm_err_t (*write_func)(mpu6050_handle_t handle, uint8_t reg_addr, uint8_t *buf, uint16_t len, uint32_t timeout_ms);
+typedef stm_err_t (*read_func)(hardware_info_t hw_info, uint8_t reg_addr, uint8_t *buf, uint16_t len, uint32_t timeout_ms);
+typedef stm_err_t (*write_func)(hardware_info_t hw_info, uint8_t reg_addr, uint8_t *buf, uint16_t len, uint32_t timeout_ms);
 
 typedef struct mpu6050 {
     mpu6050_clksel_t        clksel;                 /*!< MPU6050 clock source */
@@ -125,12 +125,12 @@ typedef struct mpu6050 {
     float                   accel_scaling_factor;   /*!< MPU6050 accelerometer scaling factor */
     float                   gyro_scaling_factor;    /*!< MPU6050 gyroscope scaling factor */
     SemaphoreHandle_t       lock;                   /*!< MPU6050 mutex */
-    i2c_num_t               i2c_num;                /*!< MPU6050 I2C num */
+    hardware_info_t         hw_info;                /*!< MPU6050 hardware information */
     read_func               _read;                  /*!< MPU6050 read function */
     write_func              _write;                 /*!< MPU6050 write function */
 } mpu6050_t;
 
-static stm_err_t _i2c_write_func(mpu6050_handle_t handle, uint8_t reg_addr, uint8_t *buf, uint16_t len, uint32_t timeout_ms)
+static stm_err_t _i2c_write_func(hardware_info_t hw_info, uint8_t reg_addr, uint8_t *buf, uint16_t len, uint32_t timeout_ms)
 {
     uint8_t buf_send[len + 1];
     buf_send[0] = reg_addr;
@@ -139,24 +139,38 @@ static stm_err_t _i2c_write_func(mpu6050_handle_t handle, uint8_t reg_addr, uint
         buf_send[i + 1] = buf[i];
     }
 
-    MPU6050_CHECK(!i2c_write_bytes(handle->i2c_num, MPU6050_ADDR, buf_send, len + 1, timeout_ms), MPU6050_TRANS_ERR_STR, return STM_FAIL);
+    MPU6050_CHECK(!i2c_write_bytes(hw_info.i2c_num, MPU6050_ADDR, buf_send, len + 1, timeout_ms), MPU6050_TRANS_ERR_STR, return STM_FAIL);
     return STM_OK;
 }
 
-static stm_err_t _i2c_read_func(mpu6050_handle_t handle, uint8_t reg_addr, uint8_t *buf, uint16_t len, uint32_t timeout_ms)
+static stm_err_t _i2c_read_func(hardware_info_t hw_info, uint8_t reg_addr, uint8_t *buf, uint16_t len, uint32_t timeout_ms)
 {
     uint8_t buffer[1];
     buffer[0] = reg_addr;
-    MPU6050_CHECK(!i2c_write_bytes(handle->i2c_num, MPU6050_ADDR, buffer, 1, timeout_ms), MPU6050_REC_ERR_STR, return STM_FAIL);
-    MPU6050_CHECK(!i2c_read_bytes(handle->i2c_num, MPU6050_ADDR, buf, len, timeout_ms), MPU6050_REC_ERR_STR, return STM_FAIL);
+    MPU6050_CHECK(!i2c_write_bytes(hw_info.i2c_num, MPU6050_ADDR, buffer, 1, timeout_ms), MPU6050_REC_ERR_STR, return STM_FAIL);
+    MPU6050_CHECK(!i2c_read_bytes(hw_info.i2c_num, MPU6050_ADDR, buf, len, timeout_ms), MPU6050_REC_ERR_STR, return STM_FAIL);
 
     return STM_OK;
 }
 
-static void _mpu6050_set_func(mpu6050_handle_t handle, read_func _read, write_func _write)
+static read_func _get_read_func(mpu6050_if_protocol_t if_protocol) 
 {
-    handle->_read = _read;
-    handle->_write = _write;
+    if (if_protocol == MPU6050_IF_I2C)
+    {
+        return _i2c_read_func;
+    }
+
+    return _i2c_read_func;
+}
+
+static write_func _get_write_func(mpu6050_if_protocol_t if_protocol) 
+{
+    if (if_protocol == MPU6050_IF_I2C)
+    {
+        return _i2c_write_func;
+    }
+
+    return _i2c_write_func;
 }
 
 static void _mpu6050_cleanup(mpu6050_handle_t handle) {
@@ -179,45 +193,41 @@ mpu6050_handle_t mpu6050_init(mpu6050_cfg_t *config)
     handle = calloc(1, sizeof(mpu6050_t));
     MPU6050_CHECK(handle, MPU6050_INIT_ERR_STR, return NULL);
 
-    handle->i2c_num = config->i2c_num;
+    /* Get write function */
+    write_func _write = _get_write_func(config->if_protocol);
 
-    if (config->if_protocol == MPU6050_IF_I2C)
-    {
-        _mpu6050_set_func(handle, _i2c_read_func, _i2c_write_func);
-    }
-
-    /* Reset mpu6050 */
+    /* Reset MPU6050 */
     uint8_t buffer = 0;
     buffer = 0x80;
-    MPU6050_CHECK(!handle->_write(handle, MPU6050_PWR_MGMT_1, &buffer, 1, TIMEOUT_MS_DEFAULT), MPU6050_INIT_ERR_STR, {_mpu6050_cleanup(handle); return NULL;});
+    MPU6050_CHECK(!_write(config->hw_info, MPU6050_PWR_MGMT_1, &buffer, 1, TIMEOUT_MS_DEFAULT), MPU6050_INIT_ERR_STR, {_mpu6050_cleanup(handle); return NULL;});
     HAL_Delay(100);
 
     /* Configure clock source and sleep mode */
     buffer = 0;
     buffer = config->clksel & 0x07;
     buffer |= (config->sleep_mode << 6) & 0x40;
-    MPU6050_CHECK(!handle->_write(handle, MPU6050_PWR_MGMT_1, &buffer, 1, TIMEOUT_MS_DEFAULT), MPU6050_INIT_ERR_STR, {_mpu6050_cleanup(handle); return NULL;});
+    MPU6050_CHECK(!_write(config->hw_info, MPU6050_PWR_MGMT_1, &buffer, 1, TIMEOUT_MS_DEFAULT), MPU6050_INIT_ERR_STR, {_mpu6050_cleanup(handle); return NULL;});
     HAL_Delay(100);
 
     /* Configure digital low pass filter */
     buffer = 0;
     buffer = config->dlpf_cfg & 0x07;
-    MPU6050_CHECK(!handle->_write(handle, MPU6050_CONFIG, &buffer, 1, TIMEOUT_MS_DEFAULT), MPU6050_INIT_ERR_STR, {_mpu6050_cleanup(handle); return NULL;});
+    MPU6050_CHECK(!_write(config->hw_info, MPU6050_CONFIG, &buffer, 1, TIMEOUT_MS_DEFAULT), MPU6050_INIT_ERR_STR, {_mpu6050_cleanup(handle); return NULL;});
 
     /* Configure gyroscope range */
     buffer = 0;
     buffer = (config->fs_sel << 3) & 0x18;
-    MPU6050_CHECK(!handle->_write(handle, MPU6050_GYRO_CONFIG, &buffer, 1, TIMEOUT_MS_DEFAULT), MPU6050_INIT_ERR_STR, {_mpu6050_cleanup(handle); return NULL;});
+    MPU6050_CHECK(!_write(config->hw_info, MPU6050_GYRO_CONFIG, &buffer, 1, TIMEOUT_MS_DEFAULT), MPU6050_INIT_ERR_STR, {_mpu6050_cleanup(handle); return NULL;});
 
     /* Configure accelerometer range */
     buffer = 0;
     buffer = (config->afs_sel << 3) & 0x18;
-    MPU6050_CHECK(!handle->_write(handle, MPU6050_ACCEL_CONFIG, &buffer, 1, TIMEOUT_MS_DEFAULT), MPU6050_INIT_ERR_STR, {_mpu6050_cleanup(handle); return NULL;});
+    MPU6050_CHECK(!_write(config->hw_info, MPU6050_ACCEL_CONFIG, &buffer, 1, TIMEOUT_MS_DEFAULT), MPU6050_INIT_ERR_STR, {_mpu6050_cleanup(handle); return NULL;});
 
     /* Configure sample rate divider */
     buffer = 0;
     buffer = 0x04;
-    MPU6050_CHECK(!handle->_write(handle, MPU6050_SMPLRT_DIV, &buffer, 1, TIMEOUT_MS_DEFAULT), MPU6050_INIT_ERR_STR, {_mpu6050_cleanup(handle); return NULL;});
+    MPU6050_CHECK(!_write(config->hw_info, MPU6050_SMPLRT_DIV, &buffer, 1, TIMEOUT_MS_DEFAULT), MPU6050_INIT_ERR_STR, {_mpu6050_cleanup(handle); return NULL;});
 
     /* Update accelerometer scaling factor */
     switch (config->afs_sel)
@@ -279,6 +289,9 @@ mpu6050_handle_t mpu6050_init(mpu6050_cfg_t *config)
     handle->sleep_mode = config->sleep_mode;
     handle->if_protocol = config->if_protocol;
     handle->lock = mutex_create();
+    handle->hw_info.i2c_num = config->hw_info.i2c_num;
+    handle->_read = _get_read_func(config->if_protocol);
+    handle->_write = _get_write_func(config->if_protocol);
 
     return handle;
 }
@@ -290,7 +303,7 @@ stm_err_t mpu6050_get_accel_raw(mpu6050_handle_t handle, mpu6050_raw_data_t *raw
     int ret;
     uint8_t accel_raw_data[6];
 
-    ret = handle->_read(handle, MPU6050_ACCEL_XOUT_H, accel_raw_data, 6, TIMEOUT_MS_DEFAULT);
+    ret = handle->_read(handle->hw_info, MPU6050_ACCEL_XOUT_H, accel_raw_data, 6, TIMEOUT_MS_DEFAULT);
     if (ret) {
         STM_LOGE(MPU6050_TAG, MPU6050_GET_DATA_ERR_STR);
         mutex_unlock(handle->lock);
@@ -312,7 +325,7 @@ stm_err_t mpu6050_get_accel_cali(mpu6050_handle_t handle, mpu6050_cali_data_t *c
     int ret;
     uint8_t accel_raw_data[6];
 
-    ret = handle->_read(handle, MPU6050_ACCEL_XOUT_H, accel_raw_data, 6, TIMEOUT_MS_DEFAULT);
+    ret = handle->_read(handle->hw_info, MPU6050_ACCEL_XOUT_H, accel_raw_data, 6, TIMEOUT_MS_DEFAULT);
     if (ret) {
         STM_LOGE(MPU6050_TAG, MPU6050_GET_DATA_ERR_STR);
         mutex_unlock(handle->lock);
@@ -334,7 +347,7 @@ stm_err_t mpu6050_get_accel_scale(mpu6050_handle_t handle, mpu6050_scale_data_t 
     int ret;
     uint8_t accel_raw_data[6];
 
-    ret = handle->_read(handle, MPU6050_ACCEL_XOUT_H, accel_raw_data, 6, TIMEOUT_MS_DEFAULT);
+    ret = handle->_read(handle->hw_info, MPU6050_ACCEL_XOUT_H, accel_raw_data, 6, TIMEOUT_MS_DEFAULT);
     if (ret) {
         STM_LOGE(MPU6050_TAG, MPU6050_GET_DATA_ERR_STR);
         mutex_unlock(handle->lock);
@@ -356,7 +369,7 @@ stm_err_t mpu6050_get_gyro_raw(mpu6050_handle_t handle, mpu6050_raw_data_t *raw_
     int ret;
     uint8_t gyro_raw_data[6];
 
-    ret = handle->_read(handle, MPU6050_GYRO_XOUT_H, gyro_raw_data, 6, TIMEOUT_MS_DEFAULT);
+    ret = handle->_read(handle->hw_info, MPU6050_GYRO_XOUT_H, gyro_raw_data, 6, TIMEOUT_MS_DEFAULT);
     if (ret) {
         STM_LOGE(MPU6050_TAG, MPU6050_GET_DATA_ERR_STR);
         mutex_unlock(handle->lock);
@@ -378,7 +391,7 @@ stm_err_t mpu6050_get_gyro_cali(mpu6050_handle_t handle, mpu6050_cali_data_t *ca
     int ret;
     uint8_t gyro_raw_data[6];
 
-    ret = handle->_read(handle, MPU6050_GYRO_XOUT_H, gyro_raw_data, 6, TIMEOUT_MS_DEFAULT);
+    ret = handle->_read(handle->hw_info, MPU6050_GYRO_XOUT_H, gyro_raw_data, 6, TIMEOUT_MS_DEFAULT);
     if (ret) {
         STM_LOGE(MPU6050_TAG, MPU6050_GET_DATA_ERR_STR);
         mutex_unlock(handle->lock);
@@ -400,7 +413,7 @@ stm_err_t mpu6050_get_gyro_scale(mpu6050_handle_t handle, mpu6050_scale_data_t *
     int ret;
     uint8_t gyro_raw_data[6];
 
-    ret = handle->_read(handle, MPU6050_GYRO_XOUT_H, gyro_raw_data, 6, TIMEOUT_MS_DEFAULT);
+    ret = handle->_read(handle->hw_info, MPU6050_GYRO_XOUT_H, gyro_raw_data, 6, TIMEOUT_MS_DEFAULT);
     if (ret) {
         STM_LOGE(MPU6050_TAG, MPU6050_GET_DATA_ERR_STR);
         mutex_unlock(handle->lock);
