@@ -1,6 +1,6 @@
 // MIT License
 
-// Copyright (c) 2020 thanhphong98
+// Copyright (c) 2020 phonght32
 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -95,7 +95,7 @@ static void example_task(void* arg)
     mpu6050_cfg.dlpf_cfg =  MPU6050_44ACCEL_42GYRO_BW_HZ;
     mpu6050_cfg.fs_sel = MPU6050_FS_SEL_2000;
     mpu6050_cfg.sleep_mode = MPU6050_DISABLE_SLEEP_MODE;
-    mpu6050_cfg.i2c_num = I2C_NUM;
+    mpu6050_cfg.hw_info.i2c_num = I2C_NUM;
     mpu6050_cfg.if_protocol = MPU6050_IF_PROTOCOL;
     mpu6050_handle = mpu6050_init(&mpu6050_cfg);
 
