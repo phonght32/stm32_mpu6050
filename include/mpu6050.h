@@ -114,7 +114,7 @@ typedef enum {
 
 typedef struct {
     i2c_num_t               i2c_num;        /*!< I2C num */
-} hardware_info_t;
+} mpu6050_hardware_info_t;
 
 typedef struct {
     mpu6050_clksel_t        clksel;         /*!< MPU6050 clock source */
@@ -125,7 +125,7 @@ typedef struct {
     mpu6050_accel_bias_t    accel_bias;     /*!< Acceleromter bias */
     mpu6050_gyro_bias_t     gyro_bias;      /*!< Gyroscope bias */
     mpu6050_if_protocol_t   if_protocol;    /*!< Interface protocol */
-    hardware_info_t         hw_info;        /*!< Hardware information */
+    mpu6050_hardware_info_t         hw_info;        /*!< Hardware information */
 } mpu6050_cfg_t;
 
 /*
