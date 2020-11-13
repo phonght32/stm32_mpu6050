@@ -200,14 +200,14 @@ mpu6050_handle_t mpu6050_init(mpu6050_cfg_t *config)
     uint8_t buffer = 0;
     buffer = 0x80;
     MPU6050_CHECK(!_write(config->hw_info, MPU6050_PWR_MGMT_1, &buffer, 1, TIMEOUT_MS_DEFAULT), MPU6050_INIT_ERR_STR, {_mpu6050_cleanup(handle); return NULL;});
-    HAL_Delay(100);
+    vTaskDelay(100/portTICK_PERIOD_MS);
 
     /* Configure clock source and sleep mode */
     buffer = 0;
     buffer = config->clksel & 0x07;
     buffer |= (config->sleep_mode << 6) & 0x40;
     MPU6050_CHECK(!_write(config->hw_info, MPU6050_PWR_MGMT_1, &buffer, 1, TIMEOUT_MS_DEFAULT), MPU6050_INIT_ERR_STR, {_mpu6050_cleanup(handle); return NULL;});
-    HAL_Delay(100);
+    vTaskDelay(100/portTICK_PERIOD_MS);
 
     /* Configure digital low pass filter */
     buffer = 0;
