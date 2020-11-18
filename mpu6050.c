@@ -98,7 +98,8 @@
 #define MPU6050_TRANS_ERR_STR       "mpu6050 write registers error"
 #define MPU6050_REC_ERR_STR         "mpu6050 read registers error"
 #define MPU6050_GET_DATA_ERR_STR    "mpu6050 get data error"
-
+#define MPU6050_SET_BIAS_ERR_STR    "mpu6050 set bias error"
+#define MPU6050_GET_BIAS_ERR_STR    "mpu6050 get bias error"
 #define mutex_lock(x)               while (xSemaphoreTake(x, portMAX_DELAY) != pdPASS)
 #define mutex_unlock(x)             xSemaphoreGive(x)
 #define mutex_create()              xSemaphoreCreateMutex()
@@ -125,7 +126,7 @@ typedef struct mpu6050 {
     float                   accel_scaling_factor;   /*!< MPU6050 accelerometer scaling factor */
     float                   gyro_scaling_factor;    /*!< MPU6050 gyroscope scaling factor */
     SemaphoreHandle_t       lock;                   /*!< MPU6050 mutex */
-    mpu6050_hardware_info_t         hw_info;                /*!< MPU6050 hardware information */
+    mpu6050_hardware_info_t hw_info;                /*!< MPU6050 hardware information */
     read_func               _read;                  /*!< MPU6050 read function */
     write_func              _write;                 /*!< MPU6050 write function */
 } mpu6050_t;
@@ -160,7 +161,7 @@ static read_func _get_read_func(mpu6050_if_protocol_t if_protocol)
         return _i2c_read_func;
     }
 
-    return _i2c_read_func;
+    return NULL;
 }
 
 static write_func _get_write_func(mpu6050_if_protocol_t if_protocol) 
@@ -170,7 +171,7 @@ static write_func _get_write_func(mpu6050_if_protocol_t if_protocol)
         return _i2c_write_func;
     }
 
-    return _i2c_write_func;
+    return NULL;
 }
 
 static void _mpu6050_cleanup(mpu6050_handle_t handle) {
@@ -298,6 +299,9 @@ mpu6050_handle_t mpu6050_init(mpu6050_cfg_t *config)
 
 stm_err_t mpu6050_get_accel_raw(mpu6050_handle_t handle, mpu6050_raw_data_t *raw_data)
 {
+    MPU6050_CHECK(handle, MPU6050_GET_DATA_ERR_STR, return STM_ERR_INVALID_ARG);
+    MPU6050_CHECK(raw_data, MPU6050_GET_DATA_ERR_STR, return STM_ERR_INVALID_ARG);
+
     mutex_lock(handle->lock);
 
     int ret;
@@ -320,6 +324,9 @@ stm_err_t mpu6050_get_accel_raw(mpu6050_handle_t handle, mpu6050_raw_data_t *raw
 
 stm_err_t mpu6050_get_accel_cali(mpu6050_handle_t handle, mpu6050_cali_data_t *cali_data)
 {
+    MPU6050_CHECK(handle, MPU6050_GET_DATA_ERR_STR, return STM_ERR_INVALID_ARG);
+    MPU6050_CHECK(cali_data, MPU6050_GET_DATA_ERR_STR, return STM_ERR_INVALID_ARG);
+
     mutex_lock(handle->lock);
 
     int ret;
@@ -342,6 +349,9 @@ stm_err_t mpu6050_get_accel_cali(mpu6050_handle_t handle, mpu6050_cali_data_t *c
 
 stm_err_t mpu6050_get_accel_scale(mpu6050_handle_t handle, mpu6050_scale_data_t *scale_data)
 {
+    MPU6050_CHECK(handle, MPU6050_GET_DATA_ERR_STR, return STM_ERR_INVALID_ARG);
+    MPU6050_CHECK(scale_data, MPU6050_GET_DATA_ERR_STR, return STM_ERR_INVALID_ARG);
+
     mutex_lock(handle->lock);
 
     int ret;
@@ -364,6 +374,9 @@ stm_err_t mpu6050_get_accel_scale(mpu6050_handle_t handle, mpu6050_scale_data_t 
 
 stm_err_t mpu6050_get_gyro_raw(mpu6050_handle_t handle, mpu6050_raw_data_t *raw_data)
 {
+    MPU6050_CHECK(handle, MPU6050_GET_DATA_ERR_STR, return STM_ERR_INVALID_ARG);
+    MPU6050_CHECK(raw_data, MPU6050_GET_DATA_ERR_STR, return STM_ERR_INVALID_ARG);
+
     mutex_lock(handle->lock);
 
     int ret;
@@ -386,6 +399,9 @@ stm_err_t mpu6050_get_gyro_raw(mpu6050_handle_t handle, mpu6050_raw_data_t *raw_
 
 stm_err_t mpu6050_get_gyro_cali(mpu6050_handle_t handle, mpu6050_cali_data_t *cali_data)
 {
+    MPU6050_CHECK(handle, MPU6050_GET_DATA_ERR_STR, return STM_ERR_INVALID_ARG);
+    MPU6050_CHECK(cali_data, MPU6050_GET_DATA_ERR_STR, return STM_ERR_INVALID_ARG);
+
     mutex_lock(handle->lock);
 
     int ret;
@@ -408,6 +424,9 @@ stm_err_t mpu6050_get_gyro_cali(mpu6050_handle_t handle, mpu6050_cali_data_t *ca
 
 stm_err_t mpu6050_get_gyro_scale(mpu6050_handle_t handle, mpu6050_scale_data_t *scale_data)
 {
+    MPU6050_CHECK(handle, MPU6050_GET_DATA_ERR_STR, return STM_ERR_INVALID_ARG);
+    MPU6050_CHECK(scale_data, MPU6050_GET_DATA_ERR_STR, return STM_ERR_INVALID_ARG);
+
     mutex_lock(handle->lock);
 
     int ret;
@@ -428,40 +447,56 @@ stm_err_t mpu6050_get_gyro_scale(mpu6050_handle_t handle, mpu6050_scale_data_t *
     return STM_OK;
 }
 
-void mpu6050_set_accel_bias(mpu6050_handle_t handle, mpu6050_accel_bias_t accel_bias)
+stm_err_t mpu6050_set_accel_bias(mpu6050_handle_t handle, mpu6050_accel_bias_t accel_bias)
 {
+    MPU6050_CHECK(handle, MPU6050_SET_BIAS_ERR_STR, return STM_ERR_INVALID_ARG);
+
     mutex_lock(handle->lock);
     handle->accel_bias.x_axis = accel_bias.x_axis;
     handle->accel_bias.y_axis = accel_bias.y_axis;
     handle->accel_bias.z_axis = accel_bias.z_axis;
     mutex_unlock(handle->lock);
+
+    return STM_OK;
 }
 
-void mpu6050_set_gyro_bias(mpu6050_handle_t handle, mpu6050_gyro_bias_t gyro_bias)
+stm_err_t mpu6050_set_gyro_bias(mpu6050_handle_t handle, mpu6050_gyro_bias_t gyro_bias)
 {
+    MPU6050_CHECK(handle, MPU6050_SET_BIAS_ERR_STR, return STM_ERR_INVALID_ARG);
+
     mutex_lock(handle->lock);
     handle->gyro_bias.x_axis = gyro_bias.x_axis;
     handle->gyro_bias.y_axis = gyro_bias.y_axis;
     handle->gyro_bias.z_axis = gyro_bias.z_axis;
     mutex_unlock(handle->lock);
+
+    return STM_OK;
 }
 
-void mpu6050_get_accel_bias(mpu6050_handle_t handle, mpu6050_accel_bias_t *accel_bias)
+stm_err_t mpu6050_get_accel_bias(mpu6050_handle_t handle, mpu6050_accel_bias_t *accel_bias)
 {
+    MPU6050_CHECK(handle, MPU6050_GET_BIAS_ERR_STR, return STM_ERR_INVALID_ARG);
+
     mutex_lock(handle->lock);
     accel_bias->x_axis = handle->accel_bias.x_axis;
     accel_bias->y_axis = handle->accel_bias.y_axis;
     accel_bias->z_axis = handle->accel_bias.z_axis;
     mutex_unlock(handle->lock);
+
+    return STM_OK;
 }
 
-void mpu6050_get_gyro_bias(mpu6050_handle_t handle, mpu6050_gyro_bias_t *gyro_bias)
+stm_err_t mpu6050_get_gyro_bias(mpu6050_handle_t handle, mpu6050_gyro_bias_t *gyro_bias)
 {
+    MPU6050_CHECK(handle, MPU6050_GET_BIAS_ERR_STR, return STM_ERR_INVALID_ARG);
+
     mutex_lock(handle->lock);
     gyro_bias->x_axis = handle->gyro_bias.x_axis;
     gyro_bias->y_axis = handle->gyro_bias.y_axis;
     gyro_bias->z_axis = handle->gyro_bias.z_axis;
     mutex_unlock(handle->lock);
+
+    return STM_OK;
 }
 
 void mpu6050_auto_calib(mpu6050_handle_t handle)
