@@ -540,3 +540,8 @@ void mpu6050_auto_calib(mpu6050_handle_t handle)
     handle->gyro_bias.z_axis = mean_gz;
 }
 
+void mpu6505_destroy(mpu6050_handle_t handle)
+{
+    free(handle);
+}
+

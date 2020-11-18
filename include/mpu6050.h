@@ -256,6 +256,12 @@ stm_err_t mpu6050_get_gyro_bias(mpu6050_handle_t handle, mpu6050_gyro_bias_t *gy
  */
 void mpu6050_auto_calib(mpu6050_handle_t handle);
 
+/*
+ * @brief   Destroy handle structure.
+ * @param   handle Handle structure.
+ * @return  None.
+ */
+void mpu6505_destroy(mpu6050_handle_t handle);
 
 #ifdef __cplusplus
 }
