@@ -51,16 +51,16 @@
 // #define TEST_SCALE
 // #define AUTO_CALIB
 
-#define I2C_NUM                 I2C_NUM_1
-#define I2C_PINS_PACK           I2C_PINS_PACK_1
-#define I2C_CLK_SPEED           400000
+#define I2C_NUM                         I2C_NUM_1
+#define I2C_PINS_PACK                   I2C_PINS_PACK_1
+#define I2C_CLK_SPEED                   400000
 
-#define MPU6050_AFS_RANGE       MPU6050_AFS_SEL_8G
-#define MPU6050_FS_RAGNE        MPU6050_FS_SEL_2000
-#define MPU6050_CLKSEL          MPU6050_CLKSEL_X_GYRO_REF   
-#define MPU6050_DLPF            MPU6050_44ACCEL_42GYRO_BW_HZ
-#define MPU6050_SLEEP_MODE      MPU6050_DISABLE_SLEEP_MODE
-#define MPU6050_IF_PROTOCOL     MPU6050_IF_I2C
+#define MPU6050_AFS_RANGE               MPU6050_AFS_SEL_8G
+#define MPU6050_FS_RAGNE                MPU6050_FS_SEL_2000
+#define MPU6050_CLKSEL                  MPU6050_CLKSEL_X_GYRO_REF   
+#define MPU6050_DLPF                    MPU6050_44ACCEL_42GYRO_BW_HZ
+#define MPU6050_SLEEP_MODE              MPU6050_DISABLE_SLEEP_MODE
+#define MPU6050_COMM_MODE_PROTOCOL      MPU6050_COMM_MODE_I2C
 
 /* Handle structure */
 mpu6050_handle_t mpu6050_handle;
@@ -96,7 +96,7 @@ static void example_task(void* arg)
     mpu6050_cfg.fs_sel = MPU6050_FS_SEL_2000;
     mpu6050_cfg.sleep_mode = MPU6050_DISABLE_SLEEP_MODE;
     mpu6050_cfg.hw_info.i2c_num = I2C_NUM;
-    mpu6050_cfg.if_protocol = MPU6050_IF_PROTOCOL;
+    mpu6050_cfg.comm_mode = MPU6050_COMM_MODE_PROTOCOL;
     mpu6050_handle = mpu6050_init(&mpu6050_cfg);
 
 #ifdef AUTO_CALIB
