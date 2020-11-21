@@ -122,7 +122,7 @@ typedef struct mpu6050 {
     mpu6050_fs_sel_t        fs_sel;                 /*!< MPU6050 gyroscope full scale range */
     mpu6050_accel_bias_t    accel_bias;             /*!< MPU6050 acclerometer bias */
     mpu6050_gyro_bias_t     gyro_bias;              /*!< MPU6050 gyroscope bias */
-    mpu6050_if_protocol_t   if_protocol;            /*!< MPU6050 interface protocol */
+    mpu6050_comm_mode_t     comm_mode;              /*!< MPU6050 interface protocol */
     float                   accel_scaling_factor;   /*!< MPU6050 accelerometer scaling factor */
     float                   gyro_scaling_factor;    /*!< MPU6050 gyroscope scaling factor */
     SemaphoreHandle_t       lock;                   /*!< MPU6050 mutex */
@@ -154,9 +154,9 @@ static stm_err_t _i2c_read_func(mpu6050_hw_info_t hw_info, uint8_t reg_addr, uin
     return STM_OK;
 }
 
-static read_func _get_read_func(mpu6050_if_protocol_t if_protocol) 
+static read_func _get_read_func(mpu6050_comm_mode_t comm_mode) 
 {
-    if (if_protocol == MPU6050_IF_I2C)
+    if (comm_mode == MPU6050_COMM_MODE_I2C)
     {
         return _i2c_read_func;
     }
@@ -164,9 +164,9 @@ static read_func _get_read_func(mpu6050_if_protocol_t if_protocol)
     return NULL;
 }
 
-static write_func _get_write_func(mpu6050_if_protocol_t if_protocol) 
+static write_func _get_write_func(mpu6050_comm_mode_t comm_mode) 
 {
-    if (if_protocol == MPU6050_IF_I2C)
+    if (comm_mode == MPU6050_COMM_MODE_I2C)
     {
         return _i2c_write_func;
     }
@@ -187,7 +187,7 @@ mpu6050_handle_t mpu6050_init(mpu6050_cfg_t *config)
     MPU6050_CHECK(config->sleep_mode < MPU6050_SLEEP_MODE_MAX, MPU6050_INIT_ERR_STR, return NULL);
     MPU6050_CHECK(config->fs_sel < MPU6050_FS_SEL_MAX, MPU6050_INIT_ERR_STR, return NULL);
     MPU6050_CHECK(config->afs_sel < MPU6050_AFS_SEL_MAX, MPU6050_INIT_ERR_STR, return NULL);
-    MPU6050_CHECK(config->if_protocol < MPU6050_IF_MAX, MPU6050_INIT_ERR_STR, return NULL);
+    MPU6050_CHECK(config->comm_mode < MPU6050_COMM_MODE_MAX, MPU6050_INIT_ERR_STR, return NULL);
 
     /* Allocate memory for handle structure */
     mpu6050_handle_t handle;
@@ -195,7 +195,7 @@ mpu6050_handle_t mpu6050_init(mpu6050_cfg_t *config)
     MPU6050_CHECK(handle, MPU6050_INIT_ERR_STR, return NULL);
 
     /* Get write function */
-    write_func _write = _get_write_func(config->if_protocol);
+    write_func _write = _get_write_func(config->comm_mode);
 
     /* Reset MPU6050 */
     uint8_t buffer = 0;
@@ -288,11 +288,11 @@ mpu6050_handle_t mpu6050_init(mpu6050_cfg_t *config)
     handle->dlpf_cfg = config->dlpf_cfg;
     handle->fs_sel = config->fs_sel;
     handle->sleep_mode = config->sleep_mode;
-    handle->if_protocol = config->if_protocol;
+    handle->comm_mode = config->comm_mode;
     handle->lock = mutex_create();
     handle->hw_info = config->hw_info;
-    handle->_read = _get_read_func(config->if_protocol);
-    handle->_write = _get_write_func(config->if_protocol);
+    handle->_read = _get_read_func(config->comm_mode);
+    handle->_write = _get_write_func(config->comm_mode);
 
     return handle;
 }

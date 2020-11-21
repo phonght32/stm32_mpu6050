@@ -107,10 +107,10 @@ typedef enum {
 } mpu6050_afs_sel_t;
 
 typedef enum {
-    MPU6050_IF_I2C = 0,                     /*!< Interface over I2C */
-    MPU6050_IF_SPI,                         /*!< Interface over SPI */
-    MPU6050_IF_MAX
-} mpu6050_if_protocol_t;
+    MPU6050_COMM_MODE_I2C = 0,                     /*!< Interface over I2C */
+    MPU6050_COMM_MODE_SPI,                         /*!< Interface over SPI */
+    MPU6050_COMM_MODE_MAX
+} mpu6050_comm_mode_t;
 
 typedef struct {
     i2c_num_t               i2c_num;        /*!< I2C num */
@@ -124,7 +124,7 @@ typedef struct {
     mpu6050_afs_sel_t       afs_sel;        /*!< MPU6050 accelerometer full scale range */
     mpu6050_accel_bias_t    accel_bias;     /*!< Acceleromter bias */
     mpu6050_gyro_bias_t     gyro_bias;      /*!< Gyroscope bias */
-    mpu6050_if_protocol_t   if_protocol;    /*!< Interface protocol */
+    mpu6050_comm_mode_t     comm_mode;      /*!< Interface protocol */
     mpu6050_hw_info_t       hw_info;        /*!< Hardware information */
 } mpu6050_cfg_t;
 
