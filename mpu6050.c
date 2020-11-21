@@ -111,8 +111,8 @@ static const char* MPU6050_TAG = "MPU6050";
         action;                                                                             \
         }
 
-typedef stm_err_t (*read_func)(mpu6050_hardware_info_t hw_info, uint8_t reg_addr, uint8_t *buf, uint16_t len, uint32_t timeout_ms);
-typedef stm_err_t (*write_func)(mpu6050_hardware_info_t hw_info, uint8_t reg_addr, uint8_t *buf, uint16_t len, uint32_t timeout_ms);
+typedef stm_err_t (*read_func)(mpu6050_hw_info_t hw_info, uint8_t reg_addr, uint8_t *buf, uint16_t len, uint32_t timeout_ms);
+typedef stm_err_t (*write_func)(mpu6050_hw_info_t hw_info, uint8_t reg_addr, uint8_t *buf, uint16_t len, uint32_t timeout_ms);
 
 typedef struct mpu6050 {
     mpu6050_clksel_t        clksel;                 /*!< MPU6050 clock source */
@@ -126,12 +126,12 @@ typedef struct mpu6050 {
     float                   accel_scaling_factor;   /*!< MPU6050 accelerometer scaling factor */
     float                   gyro_scaling_factor;    /*!< MPU6050 gyroscope scaling factor */
     SemaphoreHandle_t       lock;                   /*!< MPU6050 mutex */
-    mpu6050_hardware_info_t hw_info;                /*!< MPU6050 hardware information */
+    mpu6050_hw_info_t       hw_info;                /*!< MPU6050 hardware information */
     read_func               _read;                  /*!< MPU6050 read function */
     write_func              _write;                 /*!< MPU6050 write function */
 } mpu6050_t;
 
-static stm_err_t _i2c_write_func(mpu6050_hardware_info_t hw_info, uint8_t reg_addr, uint8_t *buf, uint16_t len, uint32_t timeout_ms)
+static stm_err_t _i2c_write_func(mpu6050_hw_info_t hw_info, uint8_t reg_addr, uint8_t *buf, uint16_t len, uint32_t timeout_ms)
 {
     uint8_t buf_send[len + 1];
     buf_send[0] = reg_addr;
@@ -144,7 +144,7 @@ static stm_err_t _i2c_write_func(mpu6050_hardware_info_t hw_info, uint8_t reg_ad
     return STM_OK;
 }
 
-static stm_err_t _i2c_read_func(mpu6050_hardware_info_t hw_info, uint8_t reg_addr, uint8_t *buf, uint16_t len, uint32_t timeout_ms)
+static stm_err_t _i2c_read_func(mpu6050_hw_info_t hw_info, uint8_t reg_addr, uint8_t *buf, uint16_t len, uint32_t timeout_ms)
 {
     uint8_t buffer[1];
     buffer[0] = reg_addr;
