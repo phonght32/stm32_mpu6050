@@ -111,6 +111,7 @@ static const char* MPU6050_TAG = "MPU6050";
         action;                                                                             \
         }
 
+typedef stm_err_t (*init_func)(mpu6050_hw_info_t hw_info);
 typedef stm_err_t (*read_func)(mpu6050_hw_info_t hw_info, uint8_t reg_addr, uint8_t *buf, uint16_t len, uint32_t timeout_ms);
 typedef stm_err_t (*write_func)(mpu6050_hw_info_t hw_info, uint8_t reg_addr, uint8_t *buf, uint16_t len, uint32_t timeout_ms);
 
@@ -131,6 +132,22 @@ typedef struct mpu6050 {
     write_func              _write;                 /*!< MPU6050 write function */
 } mpu6050_t;
 
+static stm_err_t _init_i2c(mpu6050_hw_info_t hw_info)
+{
+    i2c_cfg_t i2c_cfg;
+    i2c_cfg.i2c_num = hw_info.i2c_num;
+    i2c_cfg.i2c_pins_pack = hw_info.i2c_pins_pack;
+    i2c_cfg.clk_speed = hw_info.i2c_speed;
+    MPU6050_CHECK(!i2c_config(&i2c_cfg), MPU6050_INIT_ERR_STR, return STM_FAIL);
+
+    return STM_OK;
+}
+
+static stm_err_t _init_spi(mpu6050_hw_info_t hw_info)
+{
+    return STM_OK;
+}
+
 static stm_err_t _i2c_write_func(mpu6050_hw_info_t hw_info, uint8_t reg_addr, uint8_t *buf, uint16_t len, uint32_t timeout_ms)
 {
     uint8_t buf_send[len + 1];
@@ -144,6 +161,11 @@ static stm_err_t _i2c_write_func(mpu6050_hw_info_t hw_info, uint8_t reg_addr, ui
     return STM_OK;
 }
 
+static stm_err_t _spi_write_func(mpu6050_hw_info_t hw_info, uint8_t reg_addr, uint8_t *buf, uint16_t len, uint32_t timeout_ms)
+{
+    return STM_OK;
+}
+
 static stm_err_t _i2c_read_func(mpu6050_hw_info_t hw_info, uint8_t reg_addr, uint8_t *buf, uint16_t len, uint32_t timeout_ms)
 {
     uint8_t buffer[1];
@@ -154,21 +176,39 @@ static stm_err_t _i2c_read_func(mpu6050_hw_info_t hw_info, uint8_t reg_addr, uin
     return STM_OK;
 }
 
-static read_func _get_read_func(mpu6050_comm_mode_t comm_mode) 
+static stm_err_t _spi_read_func(mpu6050_hw_info_t hw_info, uint8_t reg_addr, uint8_t *buf, uint16_t len, uint32_t timeout_ms)
 {
-    if (comm_mode == MPU6050_COMM_MODE_I2C)
-    {
-        return _i2c_read_func;
+    return STM_OK;
+}
+
+static init_func _get_init_func(mpu6050_comm_mode_t comm_mode)
+{
+    if (comm_mode == MPU6050_COMM_MODE_I2C) {
+        return _init_i2c;
+    } else {
+        return _init_spi;
     }
 
     return NULL;
 }
 
-static write_func _get_write_func(mpu6050_comm_mode_t comm_mode) 
+static read_func _get_read_func(mpu6050_comm_mode_t comm_mode)
 {
-    if (comm_mode == MPU6050_COMM_MODE_I2C)
-    {
+    if (comm_mode == MPU6050_COMM_MODE_I2C) {
+        return _i2c_read_func;
+    } else {
+        return _spi_read_func;
+    }
+
+    return NULL;
+}
+
+static write_func _get_write_func(mpu6050_comm_mode_t comm_mode)
+{
+    if (comm_mode == MPU6050_COMM_MODE_I2C) {
         return _i2c_write_func;
+    } else {
+        return _spi_write_func;
     }
 
     return NULL;
@@ -194,6 +234,12 @@ mpu6050_handle_t mpu6050_init(mpu6050_cfg_t *config)
     handle = calloc(1, sizeof(mpu6050_t));
     MPU6050_CHECK(handle, MPU6050_INIT_ERR_STR, return NULL);
 
+    /* Init hardware */
+    if (!config->hw_info.is_init) {
+        init_func _init = _get_init_func(config->comm_mode);
+        MPU6050_CHECK(!_init(config->hw_info), MPU6050_INIT_ERR_STR, {_mpu6050_cleanup(handle); return NULL;});
+    }
+
     /* Get write function */
     write_func _write = _get_write_func(config->comm_mode);
 
@@ -201,14 +247,14 @@ mpu6050_handle_t mpu6050_init(mpu6050_cfg_t *config)
     uint8_t buffer = 0;
     buffer = 0x80;
     MPU6050_CHECK(!_write(config->hw_info, MPU6050_PWR_MGMT_1, &buffer, 1, TIMEOUT_MS_DEFAULT), MPU6050_INIT_ERR_STR, {_mpu6050_cleanup(handle); return NULL;});
-    vTaskDelay(100/portTICK_PERIOD_MS);
+    vTaskDelay(100 / portTICK_PERIOD_MS);
 
     /* Configure clock source and sleep mode */
     buffer = 0;
     buffer = config->clksel & 0x07;
     buffer |= (config->sleep_mode << 6) & 0x40;
     MPU6050_CHECK(!_write(config->hw_info, MPU6050_PWR_MGMT_1, &buffer, 1, TIMEOUT_MS_DEFAULT), MPU6050_INIT_ERR_STR, {_mpu6050_cleanup(handle); return NULL;});
-    vTaskDelay(100/portTICK_PERIOD_MS);
+    vTaskDelay(100 / portTICK_PERIOD_MS);
 
     /* Configure digital low pass filter */
     buffer = 0;

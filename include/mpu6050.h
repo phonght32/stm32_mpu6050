@@ -27,8 +27,10 @@
 extern "C" {
 #endif
 
+#include "stdbool.h"
 #include "stm_err.h"
 #include "driver/i2c.h"
+#include "driver/spi.h"
 
 typedef struct mpu6050 *mpu6050_handle_t;
 
@@ -107,13 +109,18 @@ typedef enum {
 } mpu6050_afs_sel_t;
 
 typedef enum {
-    MPU6050_COMM_MODE_I2C = 0,                     /*!< Interface over I2C */
-    MPU6050_COMM_MODE_SPI,                         /*!< Interface over SPI */
+    MPU6050_COMM_MODE_I2C = 0,              /*!< Interface over I2C */
+    MPU6050_COMM_MODE_SPI,                  /*!< Interface over SPI */
     MPU6050_COMM_MODE_MAX
 } mpu6050_comm_mode_t;
 
 typedef struct {
     i2c_num_t               i2c_num;        /*!< I2C num */
+    i2c_pins_pack_t         i2c_pins_pack;  /*!< I2C pins pack */
+    uint32_t                i2c_speed;      /*!< I2C speed */
+    spi_num_t               spi_num;        /*!< SPI num */
+    spi_pins_pack_t         spi_pins_pack;  /*!< SPI pins pack */
+    bool                    is_init;        /*!< Is hardware init */
 } mpu6050_hw_info_t;
 
 typedef struct {
@@ -132,9 +139,7 @@ typedef struct {
  * @brief   Initialize I2C communication and configure MPU6050 's parameters
  *          such as clock source, digital low pass filter (DLPF), sleep mode,
  *          gyroscope and accelerometer full scale range, bias value, ...
- * @note:   This function only get I2C_NUM to handler communication, not
- *          configure I2C 's parameters. You have to self configure I2C before
- *          pass I2C into this function.
+ * @note    Set is_init parameter to 1 if hardware already initialized.
  * @param   config Struct pointer.
  * @return
  *      - MPU6050 handle structure: Success.
