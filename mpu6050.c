@@ -588,6 +588,6 @@ void mpu6050_auto_calib(mpu6050_handle_t handle)
 
 void mpu6505_destroy(mpu6050_handle_t handle)
 {
-    free(handle);
+    _mpu6050_cleanup(handle);
 }
 
